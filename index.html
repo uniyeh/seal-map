@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Seal Map</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .map-container {
+            text-align: center;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            margin: 50px 0;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            pointer-events: none;
+            font-family: sans-serif;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Seals' Map</h1>
+    <div class="map-container">
+        <div id="map"></div>
+        <h3>Populations</h3>
+        <div id="chart"></div>
+    </div>
+    <div  style="position: relative; height: 100px;">
+        <p style="position: absolute; bottom: 0; right: 0; text-align: right; font-size: 14px;">
+            Reference<br>
+            <a href="www.iucnredlist.org">IUCN 2025. IUCN Red List of Threatened Species. Version 2025-1<br>
+            <a href="https://doi.org/10.25607/obis.occurrence.b89117cd">Ocean Biodiversity Information System (OBIS) (25 March 2025) OBIS Occurrence Data
+        </p>
+    </div>
+    <div id="tooltip" class="tooltip"></div>
+    <div class="loading" id="loading">Loading map...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+    
+    <script>
+        // Map dimensions
+        const width = 1000;
+        const height = 600;
+        
+        // Create SVG
+        const svg = d3.select("#map")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+        
+        // Map projection
+        const projection = d3.geoNaturalEarth1()
+            .scale(200)
+            .translate([width / 2, height / 2]);
+            
+        const path = d3.geoPath().projection(projection);
+        
+        const seals = [
+            {idx: 1, name: "Monachus monachus", lat: 36.868358, lon: 30.717608, amt: 600, risk: "vu", col: "blue", col2: "lightblue"},
+            {idx: 2, name: "Neomonachus schauinslandi", lat: 23.06, lon: -161.92, amt: 632, risk: "en", col: "Maroon", col2: "Sienna"},
+            {idx: 3, name: "Mirounga angustirostris", lat: 32.658087, lon: -117.403087, amt:110000, risk: "lc", col: "green", col2: "lightgreen"},
+            {idx: 4, name: "Mirounga leonina", lat: -66.929408, lon: 66.706851, amt:325000, risk: "lc", col: "red", col2: "lightcoral"},
+            {idx: 5, name: "Ommatophoca rossi", lat: -72.181294, lon: -15.910340, amt: 40000, risk: "lc", col: "purple", col2: "violet"},
+            {idx: 6, name: "Lobodon carcinophagus", lat: -66.582556, lon: 115.574040, amt:4000000, risk: "lc", col: "orange", col2: "lightsalmon"},
+            {idx: 7, name: "Hydrurga leptonyx", lat: -69.999288, lon: -2.636719, amt:18000, risk: "lc", col: "yellow", col2: "lightyellow"},
+            {idx: 8, name: "Leptonychotes weddellii", lat: -73.460758, lon: -89.125389, amt: 300000, risk: "lc", col: "pink", col2: "LavenderBlush"},
+            {idx: 9, name: "Erignathus barbatus", lat: 68.528742, lon: 42.253494, amt: 500000, risk: "lc", col: "brown", col2: "moccasin"},
+            {idx: 10, name: "Cystophora cristata", lat: 60.033734, lon: -57.354394, amt: 340000, risk: "vu", col: "gray", col2: "lightgray"},
+            {idx: 11, name: "Phoca largha", lat: 43.955293, lon: 136.659761, amt: 320000, rist: "lc", col: "cyan", col2: "lightcyan"},
+            {idx: 12, name: "Phoca vitulina", lat: 56.165915, lon: 162.848893, amt: 315000, risk: "lc", col: "magenta", col2: "orchid"},
+            {idx: 13, name: "Halichoerus grypus", lat: 63.875917, lon: -23.36795, amt: 316000, risk: "lc", col: "lime", col2: "lightgreen"},
+            {idx: 14, name: "Pagophilus groenlandicus", lat: 80.227931, lon: 39.034390, amt: 4500000, risk: "lc", col: "teal", col2: "lightseagreen"},
+            {idx: 15, name: "Pusa caspica", lat: 41.593499, lon: 50.460170, amt: 68000, risk: "en", col: "indigo", col2: "darkslateblue"},
+            {idx: 16, name: "Pusa hispida", lat: 73.791602, lon: 119.717985, amt: 1500000, risk: "lc", col: "gold", col2: "lightgoldenrodyellow"},
+            {idx: 17, name: "Pusa sibirica", lat: 53.711852, lon: 107.940641, amt: 54000, risk: "lc", col: "DarkSlateGray", col2: "SlateGray"},
+            {idx: 18, name: "Histriophoca fasciata", lat: 54.674633, lon: -165.519940, amt: 183000, risk: "lc", col: "plum", col2: "thistle"}
+        ];
+
+        const riskColors = {
+            'lc': '#28a745', // Least Concern - Green
+            'nt': '#6f42c1', // Near Threatened - Purple
+            'vu': '#ffc107', // Vulnerable - Yellow/Orange
+            'en': '#fd7e14', // Endangered - Orange
+            'cr': '#dc3545', // Critically Endangered - Red
+            'ew': '#6c757d', // Extinct in Wild - Gray
+            'ex': '#000000'  // Extinct - Black
+        };
+
+        const tooltip = d3.select("#tooltip");
+
+        // Load and render the world map
+        d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
+            .then(world => {
+                document.getElementById("loading").style.display = "none";
+                drawMap(world);
+                drawSeal(seals);
+            })
+            .catch(function(error) {
+                document.getElementById("loading").innerHTML = "Error loading map data.";
+                console.error("Error:", error);
+            });
+        
+        function drawMap(world){
+            //draw map
+            const map = svg.append("g")
+                .selectAll("path")
+                .data(topojson.feature(world, world.objects.countries).features)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .style("fill", "#ddd")
+                .style("stroke", "none");
+            
+            return map;
+        }    
+
+        const radius = 6;
+        
+        function getRiskColor(risk) {
+            return riskColors[risk?.toLowerCase()] || '#cccccc'; // Default gray if risk not found
+        }
+
+        function drawSeal(sealLocations){
+            let sealGroup = svg.append("g")
+            .selectAll("circle")
+            .data(sealLocations)
+            .enter()
+            .append("circle")
+            .attr("cx", d => projection([d.lon, d.lat])[0])
+            .attr("cy", d => projection([d.lon, d.lat])[1])
+            .attr("r", radius)
+            .style("fill", d => d.col)
+            .on("click", function(event, d) {
+                  alert("Seal Location: " + d.name + "\nLatitude: " + d.lat + "\nLongitude: " + d.lon);
+            })
+            .on("mouseover", function(event, d) {
+                d3.select(this)              
+                    .style("fill", d => d.col2)
+                    .attr("r", radius * 1.5);
+
+                tooltip.style("display", "block")
+                    .style("left", (event.pageX + 10) + "px")  // X position
+                    .style("top", (event.pageY) + "px")  // Y position
+                    .html(`
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="
+                                width: 24px;
+                                height: 24px;
+                                border-radius: 50%;
+                                background-color: ${getRiskColor(d.risk)};
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: white;
+                                font-size: 10px;
+                                font-weight: bold;
+                                text-transform: uppercase;
+                                flex-shrink: 0;
+                            ">
+                                ${d.risk || '?'}
+                            </div>
+                            <strong>${d.name}</strong>
+                        </div>
+                    `);
+            })
+            .on("mouseout", function(event, d) {
+                d3.select(this)              // Select current dot
+                    .style("fill", d => d.col)   // Back to white
+                    .attr("r", radius);
+                tooltip.style("display", "none");            // Back to normal size
+            });
+
+            return sealGroup;
+        }
+
+        // Draw chart
+        const chart_height = 410;
+        const max_x = 4500000;
+        const top_padding = 20;
+        const left_padding_word = 150;
+        const right_padding = 20;
+
+        const chart = d3.select('#chart')
+            .append('svg')
+            .attr("width", width)
+            .attr("height", chart_height)
+            .style("border", "2px solid black");
+        
+        const scaler_x = d3.scaleLinear()
+            .domain([0, max_x])
+            .range([0, width - left_padding_word - right_padding - 10]);
+
+        const sealNames = seals.map(d => d.name);
+        // Create ordinal scale specifically for Y-axis
+        const scaler_y_ordinal = d3.scaleBand()
+        .domain(sealNames)
+        .range([0, 358]) // Same range as your linear scale
+        .padding(0.1);
+
+        let bars = chart.append("g")
+            .selectAll("rect")
+            .data(seals)
+            .enter()
+            .append("rect")
+            .attr("x", d => left_padding_word + 10)
+            .attr("y", d => scaler_y_ordinal(d.name) + top_padding)
+            .attr('height', scaler_y_ordinal.bandwidth())
+            .attr('width', d => scaler_x(d.amt))
+            .style("fill", d => d.col);
+
+        const y_axis = d3.axisLeft(scaler_y_ordinal);
+
+        chart.append("g")
+            .attr("transform", `translate(${left_padding_word}, ${top_padding})`)
+            .call(y_axis);
+
+        const x_axis = d3.axisBottom(scaler_x)
+            .ticks(10)
+            .tickFormat(d3.format(".2s"));
+
+        chart.append("g")
+            .attr("transform", `translate(${left_padding_word + 10}, 380)`)
+            .call(x_axis);
+    </script>
+</body>
+</html>
