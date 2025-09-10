@@ -78,6 +78,8 @@
             
         const path = d3.geoPath().projection(projection);
         
+        // TODO: Use data form OBIS and Red List
+        // TODO: Add seal image and the witness information(time series diagram).
         const seals = [
             {idx: 1, name: "Monachus monachus", lat: 36.868358, lon: 30.717608, amt: 600, risk: "vu", col: "blue", col2: "lightblue"},
             {idx: 2, name: "Neomonachus schauinslandi", lat: 23.06, lon: -161.92, amt: 632, risk: "en", col: "Maroon", col2: "Sienna"},
@@ -196,6 +198,7 @@
             return sealGroup;
         }
 
+        // TODO: Make the chart zoomable
         // Draw chart
         const chart_height = 410;
         const max_x = 4500000;
